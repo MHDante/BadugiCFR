@@ -15,21 +15,21 @@ public class Badugi500534815 implements BadugiPlayer{
 
 
     public static void main(String[] args){
-        //Random r = new Random(System.currentTimeMillis());
-        //EfficientDeck d = new EfficientDeck(r);
-        ////BadugiPlayer hp = new RuleBasedBadugiPlayer("Rulester");
-        //BadugiPlayer hp = new HumanBadugiPlayer();
-        //BadugiPlayer rp = new Badugi500534815();
-        ////HumanBadugiPlayer rp = new HumanBadugiPlayer(){
-        ////    @Override
-        ////    public int bettingAction(int drawsRemaining, BadugiHand hand, int bets, int pot, int toCall, int opponentDrew) {
-        ////        System.out.println("B:"+bets);
-        ////        return super.bettingAction(drawsRemaining, hand, bets, pot, toCall, opponentDrew);
-        ////    }
-        ////};
-        //BadugiPlayer[] players = new BadugiPlayer[]{rp,hp};
-        //int score = BadugiRunner.playHeadsUp(d,players, null, 10000);
-        //System.out.println(score);
+        Random r = new Random(System.currentTimeMillis());
+        EfficientDeck d = new EfficientDeck(r);
+        //BadugiPlayer hp = new RuleBasedBadugiPlayer("Rulester");
+        BadugiPlayer hp = new HumanBadugiPlayer();
+        BadugiPlayer rp = new Badugi500534815();
+        //HumanBadugiPlayer rp = new HumanBadugiPlayer(){
+        //    @Override
+        //    public int bettingAction(int drawsRemaining, BadugiHand hand, int bets, int pot, int toCall, int opponentDrew) {
+        //        System.out.println("B:"+bets);
+        //        return super.bettingAction(drawsRemaining, hand, bets, pot, toCall, opponentDrew);
+        //    }
+        //};
+        BadugiPlayer[] players = new BadugiPlayer[]{rp,hp};
+        int score = BadugiRunner.playHeadsUp(d,players, null, 10000);
+        System.out.println(score);
 
 
 
@@ -57,9 +57,9 @@ public class Badugi500534815 implements BadugiPlayer{
         if(position == 1){
             if(bets == 0) history+='H';
             if(bets == 1) history+='B';
-            if(bets == 3) history +='M';
+            if(history.endsWith("R")) history +='M';
         }
-        if(history.endsWith("BR") || history.endsWith("RM")){
+        if(history.endsWith("RM")){
             return 1;
         }
         //System.out.println("You did: " + history.charAt(history.length()-1));
@@ -71,10 +71,9 @@ public class Badugi500534815 implements BadugiPlayer{
                 if(position == 0) history += (bets == 0? 'H':'S');
                 else history += 'C';
                 break;
-            case 1: history += position == 0? 'B':'R';
+            case 1: history += position == 0? (bets == 0? 'B':'M'):'R';
         }
-        history +="X";
-        return 1;
+        return decision;
     }
 
     private int getDecision(String s) {
@@ -104,8 +103,8 @@ public class Badugi500534815 implements BadugiPlayer{
         switch (s){
             case 1: code = 'u'; break;
             case 2: code = 'v'; break;
-            case 3: code = (activeCards.get(s-1).getRank() >8)?'w':'x'; break;
-            case 4: code = (activeCards.get(s-1).getRank() >8)?'y':'z'; break;
+            case 3: code = (activeCards.get(0).getRank() >8)?'w':'x'; break;
+            case 4: code = (activeCards.get(0).getRank() >8)?'y':'z'; break;
         }
         return code;
     }
@@ -124,21 +123,21 @@ public class Badugi500534815 implements BadugiPlayer{
         }
 
 
-        int digit = getDecision(history);
+        int digit = getDecision(getCode(hand.getActiveCards()) + history);
         history += digit + (dealerDrew == -1?0:5);
         ArrayList<Card> cards = new ArrayList<>();
         List<Card> ac = hand.getInactiveCards();
-        for (int i = ac.size()-1; i >= 0; i--) {
-            if(digit <= 0) break;
+        for (Card anAc : ac) {
+            if (digit <= 0) break;
 
-            cards.add(ac.get(i));
+            cards.add(anAc);
             digit--;
         }
         ac = hand.getActiveCards();
-        for (int i = ac.size()-1; i >= 0; i--) {
-            if(digit <= 0) break;
+        for (Card anAc : ac) {
+            if (digit <= 0) break;
 
-            cards.add(ac.get(i));
+            cards.add(anAc);
             digit--;
         }
 
@@ -148,6 +147,7 @@ public class Badugi500534815 implements BadugiPlayer{
 
     @Override
     public void showdown(BadugiHand yourHand, BadugiHand opponentHand) {
+        getDecision(String.format("r: %s %s", yourHand.toString(), opponentHand.toString()));
     }
 
     @Override
