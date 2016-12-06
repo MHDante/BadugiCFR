@@ -9,5 +9,6 @@
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="agents" level="project" />
     <orderEntry type="module" module-name="NanoHTTPD" />
+    <orderEntry type="library" name="NanoHTTPD" level="project" />
   </component>
 </module>

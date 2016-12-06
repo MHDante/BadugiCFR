@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="NanoHTTPD:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/NanoHTTPD_jar</output-path>
+    <root id="archive" name="NanoHTTPD.jar">
+      <element id="module-output" name="NanoHTTPD" />
+    </root>
+  </artifact>
+</component>
