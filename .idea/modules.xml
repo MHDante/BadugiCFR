@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/Badugi.iml" filepath="$PROJECT_DIR$/Badugi.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../nanohttpd-master/core/src/main/NanoHTTPD.iml" filepath="$PROJECT_DIR$/../nanohttpd-master/core/src/main/NanoHTTPD.iml" />
     </modules>
   </component>
 </project>

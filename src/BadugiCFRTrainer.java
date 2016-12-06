@@ -3,10 +3,10 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.*;
 
-public class KuhnTrainer {
+public class BadugiCFRTrainer {
     public static  int PASS = 0, BET = 1;
     private static final Random random = new Random();
-    private HashMap<String, Node> nodeMap = new HashMap<String, Node>();
+    public static HashMap<String, Node> nodeMap = new HashMap<>();
 
 
 
@@ -18,7 +18,7 @@ public class KuhnTrainer {
         FOLD, SHOWDOWN, DRAW0, DRAW1
 
     }
-    private static class Node{
+    public static class Node{
         static HashMap<NodeType, char[]> ActionTable = new HashMap<>();
         static {
             //ActionTable.put(NodeType.ISDEALER, "YN".toCharArray());
@@ -155,12 +155,8 @@ public class KuhnTrainer {
 
 
         String infoSet = hand.code + history;
-        Node node = nodeMap.get(infoSet);
-        if (node == null) {
-            node = new Node(stateType);
-            //node.infoSet = infoSet;
-            nodeMap.put(infoSet, node);
-        }
+        //node.infoSet = infoSet;
+        Node node = nodeMap.computeIfAbsent(infoSet, k -> new Node(stateType));
 
         double[] strategy = node.getStrategy(player == 0 ? p0 : p1);
         double[] util = new double[node.numActions];
@@ -276,11 +272,11 @@ public class KuhnTrainer {
 
     public static void main(String[] args) {
         int iterations = 10;
-        KuhnTrainer t;
+        BadugiCFRTrainer t;
         try {
             System.setOut(new PrintStream(new File("output-file.txt")));
 
-            t = new KuhnTrainer();
+            t = new BadugiCFRTrainer();
             t.train(iterations);
         } catch (Exception e) {
             e.printStackTrace();
