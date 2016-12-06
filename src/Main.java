@@ -34,6 +34,9 @@
  * #L%
  */
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.PrintStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
@@ -55,8 +58,33 @@ public class Main extends NanoHTTPD {
      */
     private static final Logger LOG = Logger.getLogger(Main.class.getName());
 
-    public static void main(String[] args) {
-        ServerRunner.run(Main.class);
+    public static void main(String[] args) throws FileNotFoundException {
+        try {
+            Thread t = new Thread(() ->{
+                try {
+                    BadugiCFRTrainer.main(null);
+                }finally {
+
+                    try {
+                        printValues("inner");
+                    } catch (FileNotFoundException e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+            t.start();
+            ServerRunner.run(Main.class);
+        }finally {
+            printValues("outer");
+        }
+    }
+
+    private static void printValues(String fileName) throws FileNotFoundException {
+
+        System.setOut(new PrintStream(new File(fileName +".txt")));
+        for(String k :BadugiCFRTrainer.nodeMap.keySet()) {
+            System.out.printf("%s : %s\n", k, BadugiCFRTrainer.nodeMap.get(k));
+        }
     }
 
     public Main() {
@@ -65,7 +93,7 @@ public class Main extends NanoHTTPD {
 
     @Override
     public Response serve(IHTTPSession session) {
-        Method method = session.getMethod();
+        //Method method = session.getMethod();
         String u = session.getUri();
         URI uri = null;
         try {
@@ -74,20 +102,27 @@ public class Main extends NanoHTTPD {
             e.printStackTrace();
         }
         String path = uri == null? "" : uri.getPath();
-        System.out.println(path.split("/")[1]);
+        String state = path.split("/")[1];
+        if(state.startsWith("r: ")) return  Response.newFixedLengthResponse("2");
+        int res = -1;
+        BadugiCFRTrainer.Node n = BadugiCFRTrainer.nodeMap.get(state);
+        if (n == null) {
+            System.out.println("Failed to find state:" + state);
+            return Response.newFixedLengthResponse("2");
+        }
+        synchronized (n){
 
-        //Main.LOG.info(method + " '" + uri + "' ");
-
-        //String msg = "<html><body><h1>Hello server</h1>\n";
-        //Map<String, String> parms = session.getParms();
-        //if (parms.get("username") == null) {
-        //    msg += "<form action='?' method='get'>\n" + "  <p>Your name: <input type='text' name='username'></p>\n" + "</form>\n";
-        //} else {
-        //    msg += "<p>Hello, " + parms.get("username") + "!</p>";
-        //}
-//
-        //msg += "</body></html>\n";
-
-        return Response.newFixedLengthResponse("2");
+            float[] strat =  n.getAverageStrategy();
+            float f = BadugiCFRTrainer.random.nextFloat();
+            float thresh = 0;
+            for (int i = 0; i < strat.length; i++) {
+                float s = strat[i];
+                thresh+=s;
+                if(f<thresh){
+                    res =  i + (n.numActions ==5?0 :-1);
+                }
+            }
+        }
+        return Response.newFixedLengthResponse(res+"");
     }
 }

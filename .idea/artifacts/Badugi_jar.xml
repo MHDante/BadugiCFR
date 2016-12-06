@@ -1,0 +1,11 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="Badugi:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/Badugi_jar</output-path>
+    <root id="archive" name="Badugi.jar">
+      <element id="module-output" name="Badugi" />
+      <element id="module-output" name="NanoHTTPD" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/libs/NanoHTTPD.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/libs/agents.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>

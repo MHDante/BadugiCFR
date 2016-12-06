@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="NanoHTTPD">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/libs/NanoHTTPD.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
