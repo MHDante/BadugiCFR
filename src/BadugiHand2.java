@@ -45,8 +45,8 @@ public class BadugiHand2 implements Comparable<BadugiHand2> {
         switch (s){
             case 1: code = 'u'; break;
             case 2: code = 'v'; break;
-            case 3: code = (activeCards.get(s-1).getRank() >8)?'w':'x'; break;
-            case 4: code = (activeCards.get(s-1).getRank() >8)?'y':'z'; break;
+            case 3: code = (activeCards.get(0).getRank() >8)?'w':'x'; break;
+            case 4: code = (activeCards.get(0).getRank() >8)?'y':'z'; break;
         }
     }
     

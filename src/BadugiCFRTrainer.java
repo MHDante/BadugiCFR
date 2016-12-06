@@ -2,6 +2,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class BadugiCFRTrainer {
     public static  int PASS = 0, BET = 1;
@@ -86,12 +88,15 @@ public class BadugiCFRTrainer {
     //public NodeType Transition(String history) {
 //
     //}
-
-    private void train(int iterations) {
+    static AtomicInteger nThreads = new AtomicInteger();
+    static ExecutorService ex;
+    private void train(int iterations) throws ExecutionException, InterruptedException {
 
         double util = 0;
 
         long time = System.currentTimeMillis();
+        nThreads.set(Runtime.getRuntime().availableProcessors() - 2);
+        ex = Executors.newFixedThreadPool(nThreads.get());
 
         for (int i = 0; i < iterations; i++) {
             DeckState d = new DeckState(random);
@@ -102,9 +107,9 @@ public class BadugiCFRTrainer {
         time = System.currentTimeMillis() - time;
         System.out.println(time);
         System.out.println("Average game value: " + util / iterations);
-        for(String k :nodeMap.keySet()) {
-            System.out.printf("%s : %s\n", k, nodeMap.get(k));
-        }
+        //for(String k :nodeMap.keySet()) {
+        //    System.out.printf("%s : %s\n", k, nodeMap.get(k));
+        //}
     }
 
     //public int playerFromState(NodeType stateType){
@@ -124,7 +129,7 @@ public class BadugiCFRTrainer {
 
     private static int[] betAmounts = new int[]{8,4,2,2};
 
-    private double cfr(DeckState deckState,
+    private static double cfr(DeckState deckState,
                        NodeType stateType,
                        String history,
                        int drawsRemaining,
@@ -132,7 +137,7 @@ public class BadugiCFRTrainer {
                        int pot,
                        int toCall,
                        double p0,
-                       double p1) {
+                       double p1) throws ExecutionException, InterruptedException {
 
         //int player = playerFromState(stateType);
         //player = player == -1? 1-prevPlayer:player;
@@ -156,122 +161,148 @@ public class BadugiCFRTrainer {
 
         String infoSet = hand.code + history;
         //node.infoSet = infoSet;
-        Node node = nodeMap.computeIfAbsent(infoSet, k -> new Node(stateType));
 
-        double[] strategy = node.getStrategy(player == 0 ? p0 : p1);
-        double[] util = new double[node.numActions];
         double nodeUtil = 0;
-        for (int a = 0; a < node.numActions; a++) {
-            char action = node.actions[a];
-            String nextHistory = history + action;
+        Node node = nodeMap.computeIfAbsent(infoSet, k -> new Node(stateType));
+        synchronized (node) {
+            double[] strategy = node.getStrategy(player == 0 ? p0 : p1);
+            double[] util = new double[node.numActions];
+            HashMap<Integer, Future<Double>> futures = new HashMap<>();
+            for (int a = node.numActions - 1; a >= 0; a--) {
+                char action = node.actions[a];
+                String nextHistory = history + action;
 
 
+                int betAmount = betAmounts[drawsRemaining];
+
+                DeckState nd = deckState;
+                NodeType nt = null;
+                int nDraws = drawsRemaining;
+                int nP = 1 - player;
+                int nPot = pot;
+                int nCall = 0;
 
 
-
-
-            int betAmount = betAmounts[drawsRemaining];
-
-            DeckState nd = deckState;
-            NodeType nt = null;
-            int nDraws = drawsRemaining;
-            int nP = 1-player;
-            int nPot = pot;
-            int nCall = 0;
-
-
-            switch (action) {
-                case 'F': nt = NodeType.FOLD; break;
-                case 'H': nt = NodeType.BET_RESPONSE; break;
-                case 'B':
-                    nt = NodeType.BET_RESPONSE;
-                    nCall = betAmount;
-                    nPot += betAmount;
-                    nP = 1;
-                    break;
-                case 'C':
-                    nt = NodeType.DRAW0;
-                    nPot += toCall;
-                    nP = 0;
-                    break;
-                case 'R':
-                    nt = NodeType.BET_CLOSE;
-                    nCall = betAmount;
-                    nPot+= toCall + betAmount;
-                    nP = 0;
-                    break;
-                case 'S':
-                    nt = NodeType.DRAW0;
-                    nPot+= toCall + betAmount;
-                    nP = 0;
-                    break;
-                case 'M':
-                    nt = NodeType.DRAW0;
-                    if(history.endsWith("HR")) nPot += 7* betAmount;
-                    else if (history.endsWith("BR")) nPot += 5* betAmount;
-                    else throw new RuntimeException("Wtf");
-                    nP = 0;
-                    break;
-                default:{
-                    if (Character.isDigit(action)){
-                        int digit = Character.digit(action,10);
-                        nd = deckState.Copy();
-                        if(stateType == NodeType.DRAW0){
-                            hand = nd.hand0;
-                            nt = NodeType.DRAW1;
-                        }else if (stateType == NodeType.DRAW1){
-                            hand = nd.hand1;
-                            digit-=5;
-                            nt= NodeType.BET_INIT;
-                            //if(drawsRemaining == 3) System.out.println(nextHistory);
-
-                            nDraws = drawsRemaining-1;
-
-                        }else throw new RuntimeException("Ayy lmao");
-                        List<Card> ac = hand.getInactiveCards();
-                        for (int i = ac.size()-1; i >= 0; i--) {
-                            if(digit <= 0) break;
-
-                            hand.replaceCard(ac.get(i), nd);
-                            digit--;
-                        }
-                        ac = hand.getActiveCards();
-                        for (int i = ac.size()-1; i >= 0; i--) {
-                            if(digit <= 0) break;
-
-                            hand.replaceCard(ac.get(i), nd);
-                            digit--;
-                        }
+                switch (action) {
+                    case 'F':
+                        nt = NodeType.FOLD;
                         break;
+                    case 'H':
+                        nt = NodeType.BET_RESPONSE;
+                        break;
+                    case 'B':
+                        nt = NodeType.BET_RESPONSE;
+                        nCall = betAmount;
+                        nPot += betAmount;
+                        nP = 1;
+                        break;
+                    case 'C':
+                        nt = NodeType.DRAW0;
+                        nPot += toCall;
+                        nP = 0;
+                        break;
+                    case 'R':
+                        nt = NodeType.BET_CLOSE;
+                        nCall = betAmount;
+                        nPot += toCall + betAmount;
+                        nP = 0;
+                        break;
+                    case 'S':
+                        nt = NodeType.DRAW0;
+                        nPot += toCall + betAmount;
+                        nP = 0;
+                        break;
+                    case 'M':
+                        nt = NodeType.DRAW0;
+                        if (history.endsWith("HR")) nPot += 7 * betAmount;
+                        else if (history.endsWith("BR")) nPot += 5 * betAmount;
+                        else throw new RuntimeException("Wtf");
+                        nP = 0;
+                        break;
+                    default: {
+                        if (Character.isDigit(action)) {
+                            int digit = Character.digit(action, 10);
+                            nd = deckState.Copy();
+                            if (stateType == NodeType.DRAW0) {
+                                hand = nd.hand0;
+                                nt = NodeType.DRAW1;
+                            } else if (stateType == NodeType.DRAW1) {
+                                hand = nd.hand1;
+                                digit -= 5;
+                                nt = NodeType.BET_INIT;
+                                //if(drawsRemaining == 3) System.out.println(nextHistory);
+
+                                nDraws = drawsRemaining - 1;
+
+                            } else throw new RuntimeException("Ayy lmao");
+                            ArrayList<Card> toRemove = new ArrayList<>();
+                            List<Card> ac = hand.getInactiveCards();
+                            for (Card anAc1 : ac) {
+                                if (digit <= 0) break;
+
+                                toRemove.add(anAc1);
+                                digit--;
+                            }
+                            ac = hand.getActiveCards();
+                            for (Card anAc : ac) {
+                                if (digit <= 0) break;
+
+                                toRemove.add(anAc);
+                                digit--;
+                            }
+                            for (Card c : toRemove) {
+                                hand.replaceCard(c, nd);
+
+                            }
+                            break;
+                        }
+                        throw new IllegalStateException();
                     }
-                    throw new IllegalStateException();
+
+                }
+                if (NodeType.DRAW0 == nt && drawsRemaining == 0) {
+                    nt = NodeType.SHOWDOWN;
                 }
 
+                int nThreadsget = nThreads.getAndUpdate( i -> i==0? i : i-1);
+                if(nThreadsget == 0 || a == 0) {
+                    util[a] = player == 0
+                            ? cfr(nd, nt, nextHistory, nDraws, nP, nPot, nCall, p0 * strategy[a], p1)
+                            : cfr(nd, nt, nextHistory, nDraws, nP, nPot, nCall, p0, p1 * strategy[a]);
+
+                    util[a] *= player == nP ? 1 : -1;
+                }else{
+                    final DeckState finalNd = nd;
+                    final NodeType finalNt = nt;
+                    final int finalNDraws = nDraws;
+                    final int finalNP = nP;
+                    final int finalNPot = nPot;
+                    final int finalNCall = nCall;
+                    final int finalA = a;
+                    Callable<Double> c = () ->{
+                        double n =  player == 0
+                                ? cfr(finalNd, finalNt, nextHistory, finalNDraws, finalNP, finalNPot, finalNCall, p0 * strategy[finalA], p1)
+                                : cfr(finalNd, finalNt, nextHistory, finalNDraws, finalNP, finalNPot, finalNCall, p0, p1 * strategy[finalA]);
+                        n *=player == finalNP ? 1 : -1;
+                        return n;
+                    };
+                    futures.put(a,ex.submit(c));
+                }
             }
-            if(NodeType.DRAW0 == nt && drawsRemaining == 0){
-                nt = NodeType.SHOWDOWN;
+
+            for (int a = 0; a < node.numActions; a++) {
+                if(futures.containsKey(a)) util[a] = futures.get(a).get();
+                nodeUtil += strategy[a] * util[a];
+                double regret = util[a] - nodeUtil;
+                node.regretSum[a] += (player == 0 ? p1 : p0) * regret;
             }
-
-
-            util[a] = player == 0
-                    ? cfr(nd,nt,nextHistory,nDraws,nP,nPot,nCall, p0 * strategy[a], p1)
-                    : cfr(nd,nt,nextHistory,nDraws,nP,nPot,nCall, p0, p1 * strategy[a]);
-
-            util[a] *= player == nP ? 1:-1;
-            nodeUtil += strategy[a] * util[a];
         }
-
-        for (int a = 0; a < node.numActions; a++) {
-            double regret = util[a] - nodeUtil;
-            node.regretSum[a] += (player == 0 ? p1 : p0) * regret;
-        }
-
         return nodeUtil;
     }
 
 
     public static void main(String[] args) {
-        int iterations = 10;
+        int iterations = 1;
         BadugiCFRTrainer t;
         try {
             System.setOut(new PrintStream(new File("output-file.txt")));
